@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import {
+  AlertTriangle,
   Check,
   Clock3,
+  CircleX,
   FileText,
   FlaskConical,
   PackageCheck,
@@ -97,6 +99,7 @@ export default function Home() {
   }
 
   const completed = result?.approved;
+  const rejected = result && !result.approved;
 
   return (
     <main className="min-h-screen bg-[#f5f6f4] text-[#17211b]">
@@ -181,9 +184,15 @@ export default function Home() {
                 </h2>
               </div>
 
-              {completed && (
-                <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                  APPROVED
+              {result && (
+                <span
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                    completed
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-red-50 text-red-700"
+                  }`}
+                >
+                  {completed ? "APPROVED" : "REJECTED"}
                 </span>
               )}
             </div>
@@ -199,10 +208,18 @@ export default function Home() {
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${
                           completed
                             ? "border-emerald-200 bg-emerald-50 text-emerald-600"
-                            : "border-neutral-200 bg-neutral-50 text-neutral-400"
+                            : rejected && index < 2
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                              : rejected && index === 2
+                                ? "border-red-200 bg-red-50 text-red-600"
+                                : "border-neutral-200 bg-neutral-50 text-neutral-400"
                         }`}
                       >
-                        <Icon className="h-4 w-4" />
+                        {rejected && index === 2 ? (
+                          <CircleX className="h-4 w-4" />
+                        ) : (
+                          <Icon className="h-4 w-4" />
+                        )}
                       </div>
 
                       {index !== steps.length - 1 && (
@@ -221,6 +238,12 @@ export default function Home() {
                         {completed && (
                           <Check className="ml-auto h-4 w-4 text-emerald-500" />
                         )}
+                        {rejected && index < 2 && (
+                          <Check className="ml-auto h-4 w-4 text-emerald-500" />
+                        )}
+                        {rejected && index === 2 && (
+                          <CircleX className="ml-auto h-4 w-4 text-red-500" />
+                        )}
                       </div>
 
                       {step.key === "prescription" && result && (
@@ -233,10 +256,16 @@ export default function Home() {
                       )}
 
                       {step.key === "rxnorm" && result?.validation && (
-                        <p className="mt-1 text-xs text-neutral-500">
-                          RxCUI {result.validation.rxcui}
-                          {" · "}
-                          {result.validation.name}
+                        <p
+                          className={`mt-1 text-xs ${
+                            result.validation.valid
+                              ? "text-neutral-500"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {result.validation.valid
+                            ? `RxCUI ${result.validation.rxcui} · ${result.validation.name}`
+                            : `No RxNorm match found for “${result.validation.input}”`}
                         </p>
                       )}
 
@@ -272,24 +301,46 @@ export default function Home() {
 
         {/* Result summary */}
         {result && (
-          <section className="mt-6 grid gap-4 md:grid-cols-3">
-            <InfoCard
-              label="Medication"
-              value={result.validation?.name}
-              detail={`RxCUI ${result.validation?.rxcui}`}
-            />
+          <section className="mt-6">
+            {rejected ? (
+              <div className="rounded-3xl border border-red-200 bg-red-50 p-5 text-red-900 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-red-600">
+                      Order rejected
+                    </p>
+                    <h3 className="mt-1 text-lg font-semibold">
+                      Medication was not approved for fulfillment
+                    </h3>
+                    <p className="mt-1 text-sm text-red-800">
+                      No RxNorm match was found for “{result.validation?.input}
+                      ”. Dispensing, delivery, and audit recording were skipped.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-3">
+                <InfoCard
+                  label="Medication"
+                  value={result.validation?.name}
+                  detail={`RxCUI ${result.validation?.rxcui}`}
+                />
 
-            <InfoCard
-              label="Delivery"
-              value="Rahim"
-              detail="ETA · 15 minutes"
-            />
+                <InfoCard
+                  label="Delivery"
+                  value="Rahim"
+                  detail="ETA · 15 minutes"
+                />
 
-            <InfoCard
-              label="Audit"
-              value={`AuditEvent/${result.audit?.id}`}
-              detail="SHA-256 chain recorded"
-            />
+                <InfoCard
+                  label="Audit"
+                  value={`AuditEvent/${result.audit?.id}`}
+                  detail="SHA-256 chain recorded"
+                />
+              </div>
+            )}
           </section>
         )}
       </div>
