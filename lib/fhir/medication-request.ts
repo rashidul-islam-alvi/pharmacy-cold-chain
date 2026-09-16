@@ -1,7 +1,21 @@
 import { fhirGet } from "@/lib/fhir/client";
 
+type MedicationRequestBundle = {
+  resourceType: "Bundle";
+  entry?: {
+    resource?: MedicationRequestResource;
+  }[];
+};
+
 export const demoMedicationRequest = {
   resourceType: "MedicationRequest",
+
+  identifier: [
+    {
+      system: "http://hospital.example/orders",
+      value: "ORD001",
+    },
+  ],
 
   status: "active",
   intent: "order",
@@ -33,6 +47,12 @@ export const demoMedicationRequest = {
 export type MedicationRequestResource = {
   resourceType: "MedicationRequest";
   id: string;
+
+  identifier?: {
+    system?: string;
+    value?: string;
+  }[];
+
   status: string;
   intent: string;
 
@@ -59,4 +79,24 @@ export async function getMedicationRequest(
   id: string,
 ): Promise<MedicationRequestResource> {
   return fhirGet<MedicationRequestResource>(`/MedicationRequest/${id}`);
+}
+
+export async function findMedicationRequestByOrderId(
+  orderId: string,
+): Promise<MedicationRequestResource> {
+  const system = "http://hospital.example/orders";
+
+  const bundle = await fhirGet<MedicationRequestBundle>(
+    `/MedicationRequest?identifier=${encodeURIComponent(
+      `${system}|${orderId}`,
+    )}`,
+  );
+
+  const medicationRequest = bundle.entry?.[0]?.resource;
+
+  if (!medicationRequest) {
+    throw new Error(`MedicationRequest not found for order ${orderId}`);
+  }
+
+  return medicationRequest;
 }
