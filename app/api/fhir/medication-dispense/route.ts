@@ -1,7 +1,11 @@
 import { saveMedicationDispense } from "@/lib/fhir/medication-dispense";
+import { requireRole } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
   try {
+    // MedicationDispense creation is an admin-only operation.
+    await requireRole(["ADMIN"]);
+
     const body = await request.json();
 
     const { medicationRequestId, medicationName, rxCui, courier, etaMinutes } =
@@ -47,11 +51,15 @@ export async function POST(request: Request) {
       );
     }
 
-    if (typeof etaMinutes !== "number" || etaMinutes <= 0) {
+    if (
+      typeof etaMinutes !== "number" ||
+      !Number.isFinite(etaMinutes) ||
+      etaMinutes <= 0
+    ) {
       return Response.json(
         {
           success: false,
-          error: "ETA must be a positive number",
+          error: "ETA must be a positive finite number",
         },
         { status: 400 },
       );
@@ -71,15 +79,32 @@ export async function POST(request: Request) {
       data: dispense,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return Response.json(
+        {
+          success: false,
+          error: "Authentication required",
+        },
+        { status: 401 },
+      );
+    }
+
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return Response.json(
+        {
+          success: false,
+          error: "You are not authorized to create a MedicationDispense",
+        },
+        { status: 403 },
+      );
+    }
+
     console.error("FHIR MedicationDispense creation error:", error);
 
     return Response.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to create MedicationDispense",
+        error: "Failed to create MedicationDispense",
       },
       { status: 500 },
     );

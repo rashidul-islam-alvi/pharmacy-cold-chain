@@ -1,8 +1,12 @@
 import { fhirPost } from "@/lib/fhir/client";
 import { demoMedicationRequest } from "@/lib/fhir/medication-request";
+import { requireRole } from "@/lib/auth/session";
 
 export async function POST() {
   try {
+    // Creating a MedicationRequest is an admin-only operation.
+    await requireRole(["ADMIN"]);
+
     const medicationRequest = await fhirPost(
       "/MedicationRequest",
       demoMedicationRequest,
@@ -14,15 +18,32 @@ export async function POST() {
       data: medicationRequest,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return Response.json(
+        {
+          success: false,
+          error: "Authentication required",
+        },
+        { status: 401 },
+      );
+    }
+
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return Response.json(
+        {
+          success: false,
+          error: "You are not authorized to create a MedicationRequest",
+        },
+        { status: 403 },
+      );
+    }
+
     console.error("FHIR MedicationRequest creation error:", error);
 
     return Response.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to create MedicationRequest",
+        error: "Failed to create MedicationRequest",
       },
       { status: 500 },
     );

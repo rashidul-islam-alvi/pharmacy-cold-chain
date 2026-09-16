@@ -1,7 +1,11 @@
 import { processPharmacyOrder } from "@/lib/pharmacy/process-pharmacy-order";
+import { requireRole } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
   try {
+    // Require authentication for all endpoints
+    await requireRole(["ADMIN", "NURSE"]);
+
     const body = await request.text();
 
     if (!body.trim()) {
@@ -24,13 +28,32 @@ export async function POST(request: Request) {
       data: result,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return Response.json(
+        {
+          success: false,
+          error: "Authentication required",
+        },
+        { status: 401 },
+      );
+    }
+
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return Response.json(
+        {
+          success: false,
+          error: "You are not authorized to perform this action",
+        },
+        { status: 403 },
+      );
+    }
+
     console.error("Pharmacy workflow error:", error);
 
     return Response.json(
       {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Pharmacy workflow failed",
+        error: "Pharmacy workflow failed",
       },
       { status: 500 },
     );
